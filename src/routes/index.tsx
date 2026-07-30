@@ -43,7 +43,7 @@ export const Route = createFileRoute("/")({
       { property: "og:title", content: "FreshMart POS — Supermarket Barcode Billing" },
       {
         property: "og:description",
-        content: "Fast supermarket checkout: camera barcode scanning, GST billing and PDF receipts.",
+        content: "Scan barcodes with your phone camera, build a cart, apply GST and discounts, and print PDF receipts — all offline.",
       },
     ],
   }),
