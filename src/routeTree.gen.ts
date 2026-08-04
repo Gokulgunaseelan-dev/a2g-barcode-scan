@@ -9,12 +9,18 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as SmartqueueRouteImport } from './routes/smartqueue'
 import { Route as SalesRouteImport } from './routes/sales'
 import { Route as ProductsRouteImport } from './routes/products'
 import { Route as InventoryRouteImport } from './routes/inventory'
 import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as IndexRouteImport } from './routes/index'
 
+const SmartqueueRoute = SmartqueueRouteImport.update({
+  id: '/smartqueue',
+  path: '/smartqueue',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const SalesRoute = SalesRouteImport.update({
   id: '/sales',
   path: '/sales',
@@ -47,6 +53,7 @@ export interface FileRoutesByFullPath {
   '/inventory': typeof InventoryRoute
   '/products': typeof ProductsRoute
   '/sales': typeof SalesRoute
+  '/smartqueue': typeof SmartqueueRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -54,6 +61,7 @@ export interface FileRoutesByTo {
   '/inventory': typeof InventoryRoute
   '/products': typeof ProductsRoute
   '/sales': typeof SalesRoute
+  '/smartqueue': typeof SmartqueueRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -62,13 +70,27 @@ export interface FileRoutesById {
   '/inventory': typeof InventoryRoute
   '/products': typeof ProductsRoute
   '/sales': typeof SalesRoute
+  '/smartqueue': typeof SmartqueueRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/dashboard' | '/inventory' | '/products' | '/sales'
+  fullPaths:
+    | '/'
+    | '/dashboard'
+    | '/inventory'
+    | '/products'
+    | '/sales'
+    | '/smartqueue'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/dashboard' | '/inventory' | '/products' | '/sales'
-  id: '__root__' | '/' | '/dashboard' | '/inventory' | '/products' | '/sales'
+  to: '/' | '/dashboard' | '/inventory' | '/products' | '/sales' | '/smartqueue'
+  id:
+    | '__root__'
+    | '/'
+    | '/dashboard'
+    | '/inventory'
+    | '/products'
+    | '/sales'
+    | '/smartqueue'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -77,10 +99,18 @@ export interface RootRouteChildren {
   InventoryRoute: typeof InventoryRoute
   ProductsRoute: typeof ProductsRoute
   SalesRoute: typeof SalesRoute
+  SmartqueueRoute: typeof SmartqueueRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/smartqueue': {
+      id: '/smartqueue'
+      path: '/smartqueue'
+      fullPath: '/smartqueue'
+      preLoaderRoute: typeof SmartqueueRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/sales': {
       id: '/sales'
       path: '/sales'
@@ -125,6 +155,7 @@ const rootRouteChildren: RootRouteChildren = {
   InventoryRoute: InventoryRoute,
   ProductsRoute: ProductsRoute,
   SalesRoute: SalesRoute,
+  SmartqueueRoute: SmartqueueRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
