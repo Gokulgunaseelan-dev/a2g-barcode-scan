@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as SmartqueueRouteImport } from './routes/smartqueue'
+import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as SalesRouteImport } from './routes/sales'
 import { Route as ProductsRouteImport } from './routes/products'
 import { Route as InventoryRouteImport } from './routes/inventory'
@@ -21,6 +22,11 @@ import { Route as IndexRouteImport } from './routes/index'
 const SmartqueueRoute = SmartqueueRouteImport.update({
   id: '/smartqueue',
   path: '/smartqueue',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SettingsRoute = SettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SalesRoute = SalesRouteImport.update({
@@ -67,6 +73,7 @@ export interface FileRoutesByFullPath {
   '/inventory': typeof InventoryRoute
   '/products': typeof ProductsRoute
   '/sales': typeof SalesRoute
+  '/settings': typeof SettingsRoute
   '/smartqueue': typeof SmartqueueRoute
 }
 export interface FileRoutesByTo {
@@ -77,6 +84,7 @@ export interface FileRoutesByTo {
   '/inventory': typeof InventoryRoute
   '/products': typeof ProductsRoute
   '/sales': typeof SalesRoute
+  '/settings': typeof SettingsRoute
   '/smartqueue': typeof SmartqueueRoute
 }
 export interface FileRoutesById {
@@ -88,6 +96,7 @@ export interface FileRoutesById {
   '/inventory': typeof InventoryRoute
   '/products': typeof ProductsRoute
   '/sales': typeof SalesRoute
+  '/settings': typeof SettingsRoute
   '/smartqueue': typeof SmartqueueRoute
 }
 export interface FileRouteTypes {
@@ -100,6 +109,7 @@ export interface FileRouteTypes {
     | '/inventory'
     | '/products'
     | '/sales'
+    | '/settings'
     | '/smartqueue'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -110,6 +120,7 @@ export interface FileRouteTypes {
     | '/inventory'
     | '/products'
     | '/sales'
+    | '/settings'
     | '/smartqueue'
   id:
     | '__root__'
@@ -120,6 +131,7 @@ export interface FileRouteTypes {
     | '/inventory'
     | '/products'
     | '/sales'
+    | '/settings'
     | '/smartqueue'
   fileRoutesById: FileRoutesById
 }
@@ -131,6 +143,7 @@ export interface RootRouteChildren {
   InventoryRoute: typeof InventoryRoute
   ProductsRoute: typeof ProductsRoute
   SalesRoute: typeof SalesRoute
+  SettingsRoute: typeof SettingsRoute
   SmartqueueRoute: typeof SmartqueueRoute
 }
 
@@ -141,6 +154,13 @@ declare module '@tanstack/react-router' {
       path: '/smartqueue'
       fullPath: '/smartqueue'
       preLoaderRoute: typeof SmartqueueRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/settings': {
+      id: '/settings'
+      path: '/settings'
+      fullPath: '/settings'
+      preLoaderRoute: typeof SettingsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/sales': {
@@ -203,8 +223,19 @@ const rootRouteChildren: RootRouteChildren = {
   InventoryRoute: InventoryRoute,
   ProductsRoute: ProductsRoute,
   SalesRoute: SalesRoute,
+  SettingsRoute: SettingsRoute,
   SmartqueueRoute: SmartqueueRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}
