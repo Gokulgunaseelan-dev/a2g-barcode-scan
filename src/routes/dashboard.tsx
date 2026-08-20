@@ -4,19 +4,17 @@ import { AlertTriangle, IndianRupee, Receipt, TrendingUp } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
-import { useMoney, useProducts, useSales } from "@/lib/store";
-import { computeQueue } from "@/lib/queue";
-import { useSettings } from "@/lib/store";
+import { money, useProducts, useSales } from "@/lib/store";
 
 export const Route = createFileRoute("/dashboard")({
   head: () => ({
     meta: [
-      { title: "Sales Reports & Stock Alerts — SmartCart" },
+      { title: "Sales Reports & Stock Alerts — FreshMart POS" },
       {
         name: "description",
         content: "Daily revenue, bill count, best sellers and low-stock alerts for your supermarket.",
       },
-      { property: "og:title", content: "Sales Reports & Stock Alerts — SmartCart" },
+      { property: "og:title", content: "Sales Reports & Stock Alerts — FreshMart POS" },
       {
         property: "og:description",
         content: "Track today's revenue, top selling items and items running low on stock.",
@@ -29,9 +27,6 @@ export const Route = createFileRoute("/dashboard")({
 function Dashboard() {
   const sales = useSales();
   const products = useProducts();
-  const settings = useSettings();
-  const fmt = useMoney();
-  const q = computeQueue(settings.queue.lambda, settings.queue.mu, settings.queue.counters);
 
   const today = new Date().toDateString();
   const todays = sales.filter((s) => new Date(s.createdAt).toDateString() === today);
@@ -48,21 +43,11 @@ function Dashboard() {
     <AppShell title="Reports">
       <div className="space-y-4">
         <div className="grid grid-cols-2 gap-3">
-          <Stat icon={IndianRupee} label="Revenue today" value={fmt(revenueToday)} />
+          <Stat icon={IndianRupee} label="Revenue today" value={money(revenueToday)} />
           <Stat icon={Receipt} label="Bills today" value={String(todays.length)} />
-          <Stat icon={TrendingUp} label="Total revenue" value={fmt(revenueAll)} />
+          <Stat icon={TrendingUp} label="Total revenue" value={money(revenueAll)} />
           <Stat icon={AlertTriangle} label="Low stock items" value={String(low.length)} />
         </div>
-
-        <Card className="p-4">
-          <h2 className="mb-1 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-            SmartQueue status
-          </h2>
-          <p className="text-lg font-bold">{q.status}</p>
-          <p className="text-xs text-muted-foreground">
-            λ {q.lambda}/min · capacity {q.capacity}/min · required counters {q.required} — {q.recommendation}
-          </p>
-        </Card>
 
         <Card className="p-4">
           <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground">

@@ -78,24 +78,20 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "FreshMart POS — Supermarket Barcode Billing" },
+      { title: "FreshMart POS — Supermarket Billing" },
       {
         name: "description",
-        content: "Scan barcodes with your phone camera, build a cart, apply GST and discounts, and print PDF receipts — all offline.",
+        content: "Barcode billing, stock and PDF receipts for supermarkets, on any Android phone.",
       },
       { name: "theme-color", content: "#2f855a" },
-      { property: "og:title", content: "FreshMart POS — Supermarket Barcode Billing" },
+      { property: "og:title", content: "FreshMart POS — Supermarket Billing" },
       {
         property: "og:description",
-        content: "Scan barcodes with your phone camera, build a cart, apply GST and discounts, and print PDF receipts — all offline.",
+        content: "Barcode billing, stock and PDF receipts for supermarkets, on any Android phone.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
       { name: "twitter:site", content: "@Lovable" },
-      { name: "twitter:title", content: "FreshMart POS — Supermarket Barcode Billing" },
-      { name: "twitter:description", content: "Scan barcodes with your phone camera, build a cart, apply GST and discounts, and print PDF receipts — all offline." },
-      { property: "og:image", content: "https://storage.googleapis.com/gpt-engineer-file-uploads/attachments/og-images/8e54a8f7-d9c2-449a-9e4e-71c7fc4f57e6" },
-      { name: "twitter:image", content: "https://storage.googleapis.com/gpt-engineer-file-uploads/attachments/og-images/8e54a8f7-d9c2-449a-9e4e-71c7fc4f57e6" },
     ],
     links: [
       {
