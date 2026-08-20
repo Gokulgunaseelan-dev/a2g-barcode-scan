@@ -1,24 +1,14 @@
 /**
- * SMARTCART datastore — cloud persistence (Lovable Cloud / Postgres) with a
- * synchronous in-memory mirror so the existing UI keeps its simple API.
- *
- * Tables:
- *   products(id, user_id, barcode, name, brand, category, subcategory, mrp,
- *            price, cost, stock, unit, tax, hsn, image, low_stock_at)
- *   sales(id, user_id, invoice_no, totals, gst split, payment, session timing)
- *   sale_items(sale_id, product_id, barcode, name, mrp, price, tax, qty)
- *   stock_movements(product_id, delta, reason, sale_id)  -- audit trail
- *   store_settings(user_id, store info, currency, GST slabs, role, queue)
- *
- * Writes go through the database (stock changes via the secure
- * `checkout_sale` / `adjust_stock` RPCs) and are mirrored optimistically into
- * the local cache, which every hook below reads from.
+ * SMARTCART local offline datastore (browser localStorage).
+ * Mirrors the SQLite schema of a native POS app:
+ *   products(id, barcode, name, brand, category, subcategory, mrp, price, cost,
+ *            stock, unit, tax, hsn, image, lowStockAt)
+ *   sales(id, invoiceNo, createdAt, items[], subtotal, discount, tax, total, ...)
+ *   settings(store info, currency, GST slabs, tax mode, role, queue defaults)
  *
  * All currency math is done in integer paise (decimal-safe), then converted back.
  */
 import { useCallback, useEffect, useState } from "react";
-
-import { supabase } from "@/integrations/supabase/client";
 
 export type Product = {
   id: string;
@@ -97,6 +87,10 @@ export type Settings = {
   queue: { lambda: number; mu: number; counters: number };
 };
 
+const PRODUCTS_KEY = "mart.products";
+const SALES_KEY = "mart.sales";
+const SETTINGS_KEY = "mart.settings";
+
 /** SHA-256 of "1234" — the default admin PIN, changeable in Settings. */
 const DEFAULT_PIN_HASH = "03ac674216f3e15c761ee1a5e255f067953623c8b388b4459e13f978d7c846f4";
 
@@ -115,259 +109,118 @@ export const DEFAULT_SETTINGS: Settings = {
 };
 
 const NA = "Not available";
-const num = (v: unknown, fallback = 0) => (v === null || v === undefined ? fallback : Number(v));
 
-/* ------------------------------ local mirror ------------------------------ */
+const SEED: Product[] = [
+  { id: "p1", barcode: "8901030865278", name: "Toor Dal 1kg", brand: NA, category: "Grocery", subcategory: "Pulses", mrp: 160, price: 145, cost: 120, stock: 42, unit: "pkt", tax: 5, hsn: NA, lowStockAt: 10 },
+  { id: "p2", barcode: "8901058000108", name: "Instant Noodles 70g", brand: NA, category: "Snacks", subcategory: "Instant food", mrp: 15, price: 14, cost: 11, stock: 8, unit: "pkt", tax: 12, hsn: NA, lowStockAt: 20 },
+  { id: "p3", barcode: "8901725100018", name: "Toned Milk 500ml", brand: NA, category: "Dairy", subcategory: "Milk", mrp: 28, price: 27, cost: 24, stock: 60, unit: "pouch", tax: 0, hsn: NA, lowStockAt: 15 },
+  { id: "p4", barcode: "8904004400021", name: "Sunflower Oil 1L", brand: NA, category: "Grocery", subcategory: "Edible oil", mrp: 145, price: 132, cost: 118, stock: 25, unit: "btl", tax: 5, hsn: NA, lowStockAt: 8 },
+  { id: "p5", barcode: "8901063014008", name: "Butter Biscuits 200g", brand: NA, category: "Snacks", subcategory: "Biscuits", mrp: 35, price: 30, cost: 24, stock: 4, unit: "pkt", tax: 18, hsn: NA, lowStockAt: 12 },
+  { id: "p6", barcode: "8901396212003", name: "Toothpaste 100g", brand: NA, category: "Personal Care", subcategory: "Oral care", mrp: 60, price: 55, cost: 45, stock: 30, unit: "pcs", tax: 18, hsn: NA, lowStockAt: 10 },
+];
 
-type Cache = { products: Product[]; sales: Sale[]; settings: Settings; loaded: boolean };
-
-const cache: Cache = { products: [], sales: [], settings: DEFAULT_SETTINGS, loaded: false };
-
-const CHANGE_EVENT = "mart:store";
-
-function emit() {
-  if (typeof window !== "undefined") window.dispatchEvent(new CustomEvent(CHANGE_EVENT));
-}
-
-export const uid = () =>
-  typeof crypto !== "undefined" && "randomUUID" in crypto
-    ? crypto.randomUUID()
-    : Math.random().toString(36).slice(2, 10);
-
-/* -------------------------------- mapping -------------------------------- */
-
-type Row = Record<string, unknown>;
-
-function toProduct(r: Row): Product {
-  return {
-    id: String(r["id"]),
-    barcode: (r["barcode"] as string) ?? "",
-    name: (r["name"] as string) ?? "",
-    brand: (r["brand"] as string) ?? NA,
-    category: (r["category"] as string) ?? "Uncategorised",
-    subcategory: (r["subcategory"] as string) ?? NA,
-    mrp: num(r["mrp"]),
-    price: num(r["price"]),
-    cost: num(r["cost"]),
-    stock: num(r["stock"]),
-    unit: (r["unit"] as string) ?? "pcs",
-    tax: num(r["tax"]),
-    hsn: (r["hsn"] as string) ?? NA,
-    image: (r["image"] as string) ?? undefined,
-    lowStockAt: num(r["low_stock_at"], 5),
-  };
-}
-
-function productRow(p: Product, userId: string): Row {
-  return {
-    id: p.id,
-    user_id: userId,
-    barcode: p.barcode,
-    name: p.name,
-    brand: p.brand || NA,
-    category: p.category || "Uncategorised",
-    subcategory: p.subcategory || NA,
-    mrp: p.mrp,
-    price: p.price,
-    cost: p.cost,
-    stock: p.stock,
-    unit: p.unit || "pcs",
-    tax: p.tax,
-    hsn: p.hsn || NA,
-    image: p.image ?? null,
-    low_stock_at: p.lowStockAt,
-  };
-}
-
-function toCartItem(r: Row): CartItem {
-  return {
-    productId: (r["product_id"] as string) ?? "",
-    barcode: (r["barcode"] as string) ?? "",
-    name: (r["name"] as string) ?? "",
-    brand: (r["brand"] as string) ?? undefined,
-    mrp: num(r["mrp"]),
-    price: num(r["price"]),
-    tax: num(r["tax"]),
-    unit: (r["unit"] as string) ?? undefined,
-    qty: num(r["qty"], 1),
-  };
-}
-
-function toSale(r: Row): Sale {
-  const items = Array.isArray(r["sale_items"]) ? (r["sale_items"] as Row[]).map(toCartItem) : [];
-  return {
-    id: String(r["id"]),
-    invoiceNo: (r["invoice_no"] as string) ?? "",
-    createdAt: (r["created_at"] as string) ?? new Date().toISOString(),
-    items,
-    mrpTotal: num(r["mrp_total"]),
-    subtotal: num(r["subtotal"]),
-    discount: num(r["discount"]),
-    savings: num(r["savings"]),
-    taxable: num(r["taxable"]),
-    tax: num(r["tax"]),
-    cgst: num(r["cgst"]),
-    sgst: num(r["sgst"]),
-    igst: num(r["igst"]),
-    taxMode: (r["tax_mode"] as TaxMode) ?? "intra",
-    total: num(r["total"]),
-    paymentMode: (r["payment_mode"] as Sale["paymentMode"]) ?? "Cash",
-    customer: (r["customer"] as string) ?? undefined,
-    sessionId: (r["session_id"] as string) ?? undefined,
-    startedAt: (r["started_at"] as string) ?? undefined,
-    completedAt: (r["completed_at"] as string) ?? undefined,
-    durationSec: num(r["duration_sec"]),
-    demo: Boolean(r["demo"]),
-  };
-}
-
-function toSettings(r: Row | null): Settings {
-  if (!r) return DEFAULT_SETTINGS;
-  const queue = (r["queue"] as Settings["queue"]) ?? DEFAULT_SETTINGS.queue;
-  const slabs = (r["gst_slabs"] as unknown[] | null)?.map((s) => num(s)) ?? [];
-  return {
-    storeName: (r["store_name"] as string) ?? DEFAULT_SETTINGS.storeName,
-    address: (r["address"] as string) ?? DEFAULT_SETTINGS.address,
-    gstin: (r["gstin"] as string) ?? DEFAULT_SETTINGS.gstin,
-    currency: (r["currency"] as CurrencyCode) ?? "INR",
-    rate: num(r["rate"], 1),
-    rateSource: (r["rate_source"] as string) ?? DEFAULT_SETTINGS.rateSource,
-    taxMode: (r["tax_mode"] as TaxMode) ?? "intra",
-    gstSlabs: slabs.length ? slabs : DEFAULT_SETTINGS.gstSlabs,
-    role: (r["role"] as Role) ?? "cashier",
-    adminPinHash: (r["admin_pin_hash"] as string) ?? DEFAULT_PIN_HASH,
-    queue: { ...DEFAULT_SETTINGS.queue, ...queue },
-  };
-}
-
-function settingsRow(s: Settings, userId: string): Row {
-  return {
-    user_id: userId,
-    store_name: s.storeName,
-    address: s.address,
-    gstin: s.gstin,
-    currency: s.currency,
-    rate: s.rate,
-    rate_source: s.rateSource,
-    tax_mode: s.taxMode,
-    gst_slabs: s.gstSlabs,
-    role: s.role,
-    admin_pin_hash: s.adminPinHash,
-    queue: s.queue,
-  };
-}
-
-/* ------------------------------ sync with DB ------------------------------ */
-
-let currentUserId: string | null = null;
-let loading: Promise<void> | null = null;
-
-async function userId(): Promise<string | null> {
-  if (currentUserId) return currentUserId;
-  const { data } = await supabase.auth.getSession();
-  currentUserId = data.session?.user.id ?? null;
-  return currentUserId;
-}
-
-/** Loads the signed-in store's data into the local mirror. */
-export async function loadStore(force = false): Promise<void> {
-  if (loading && !force) return loading;
-  loading = (async () => {
-    const id = await userId();
-    if (!id) {
-      cache.products = [];
-      cache.sales = [];
-      cache.settings = DEFAULT_SETTINGS;
-      cache.loaded = false;
-      emit();
-      return;
-    }
-    const [products, sales, settings] = await Promise.all([
-      supabase.from("products").select("*").order("created_at", { ascending: false }),
-      supabase
-        .from("sales")
-        .select("*, sale_items(*)")
-        .order("created_at", { ascending: false })
-        .limit(500),
-      supabase.from("store_settings").select("*").maybeSingle(),
-    ]);
-    cache.products = (products.data ?? []).map((r) => toProduct(r as Row));
-    cache.sales = (sales.data ?? []).map((r) => toSale(r as Row));
-    cache.settings = toSettings((settings.data as Row | null) ?? null);
-    cache.loaded = true;
-    emit();
-  })();
+function read<T>(key: string, fallback: T): T {
+  if (typeof window === "undefined") return fallback;
   try {
-    await loading;
-  } finally {
-    loading = null;
+    const raw = window.localStorage.getItem(key);
+    return raw ? (JSON.parse(raw) as T) : fallback;
+  } catch {
+    return fallback;
   }
 }
 
-/** Called by the auth listener when the session changes. */
-export function resetStore(newUserId: string | null) {
-  currentUserId = newUserId;
-  cache.products = [];
-  cache.sales = [];
-  cache.settings = DEFAULT_SETTINGS;
-  cache.loaded = false;
-  emit();
-  if (newUserId) void loadStore(true);
+function write(key: string, value: unknown) {
+  if (typeof window === "undefined") return;
+  window.localStorage.setItem(key, JSON.stringify(value));
+  window.dispatchEvent(new CustomEvent("mart:store", { detail: key }));
 }
 
-/* --------------------------------- hooks --------------------------------- */
+export const uid = () => Math.random().toString(36).slice(2, 10);
 
-function useCache<T>(select: (c: Cache) => T): T {
-  const [value, setValue] = useState<T>(() => select(cache));
-  const sync = useCallback(() => setValue(select(cache)), [select]);
+/** Backfills fields added after the first release so old data keeps working. */
+function migrateProduct(p: Partial<Product> & { id: string }): Product {
+  return {
+    id: p.id,
+    barcode: p.barcode ?? "",
+    name: p.name ?? "",
+    brand: p.brand ?? NA,
+    category: p.category ?? "Uncategorised",
+    subcategory: p.subcategory ?? NA,
+    mrp: p.mrp ?? p.price ?? 0,
+    price: p.price ?? 0,
+    cost: p.cost ?? 0,
+    stock: p.stock ?? 0,
+    unit: p.unit ?? "pcs",
+    tax: p.tax ?? 0,
+    hsn: p.hsn ?? NA,
+    image: p.image,
+    lowStockAt: p.lowStockAt ?? 5,
+  };
+}
+
+function readProducts(): Product[] {
+  return read<Product[]>(PRODUCTS_KEY, []).map(migrateProduct);
+}
+
+/** Reactive read of a store key; hydration-safe (loads in useEffect). */
+function useStore<T>(key: string, fallback: T, seed?: T, map?: (v: T) => T) {
+  const [value, setValue] = useState<T>(fallback);
+
+  const load = useCallback(() => {
+    const raw = read<T>(key, fallback);
+    setValue(map ? map(raw) : raw);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [key]);
+
+  const refresh = useCallback(() => {
+    if (seed !== undefined && window.localStorage.getItem(key) === null) {
+      window.localStorage.setItem(key, JSON.stringify(seed));
+    }
+    load();
+  }, [key, load]);
 
   useEffect(() => {
-    sync();
-    if (!cache.loaded) void loadStore();
-    window.addEventListener(CHANGE_EVENT, sync);
-    return () => window.removeEventListener(CHANGE_EVENT, sync);
-  }, [sync]);
+    refresh();
+    window.addEventListener("mart:store", load);
+    window.addEventListener("storage", load);
+    return () => {
+      window.removeEventListener("mart:store", load);
+      window.removeEventListener("storage", load);
+    };
+  }, [key, refresh, load]);
 
   return value;
 }
 
-const selectProducts = (c: Cache) => c.products;
-const selectSales = (c: Cache) => c.sales;
-const selectSettings = (c: Cache) => c.settings;
-const selectLoaded = (c: Cache) => c.loaded;
-
 export function useProducts() {
-  return useCache(selectProducts);
+  return useStore<Product[]>(PRODUCTS_KEY, [], SEED, (list) => list.map(migrateProduct));
 }
 
 export function useSales() {
-  return useCache(selectSales);
+  return useStore<Sale[]>(SALES_KEY, [], []);
 }
 
 export function useSettings(): Settings {
-  return useCache(selectSettings);
-}
-
-export function useStoreLoaded() {
-  return useCache(selectLoaded);
+  return useStore<Settings>(SETTINGS_KEY, DEFAULT_SETTINGS, DEFAULT_SETTINGS, (s) => ({
+    ...DEFAULT_SETTINGS,
+    ...s,
+    queue: { ...DEFAULT_SETTINGS.queue, ...(s?.queue ?? {}) },
+    gstSlabs: s?.gstSlabs?.length ? s.gstSlabs : DEFAULT_SETTINGS.gstSlabs,
+  }));
 }
 
 export function readSettings(): Settings {
-  return cache.settings;
+  const s = read<Partial<Settings>>(SETTINGS_KEY, {});
+  return {
+    ...DEFAULT_SETTINGS,
+    ...s,
+    queue: { ...DEFAULT_SETTINGS.queue, ...(s.queue ?? {}) },
+    gstSlabs: s.gstSlabs?.length ? s.gstSlabs : DEFAULT_SETTINGS.gstSlabs,
+  };
 }
 
 export function saveSettings(patch: Partial<Settings>) {
-  const next = { ...cache.settings, ...patch };
-  cache.settings = next;
-  emit();
-  void (async () => {
-    const id = await userId();
-    if (!id) return;
-    const { error } = await supabase
-      .from("store_settings")
-      .upsert(settingsRow(next, id) as never, { onConflict: "user_id" });
-    if (error) console.error("saveSettings", error);
-  })();
+  write(SETTINGS_KEY, { ...readSettings(), ...patch });
 }
 
 export async function hashPin(pin: string) {
@@ -377,64 +230,19 @@ export async function hashPin(pin: string) {
 }
 
 export function saveProduct(product: Product) {
-  const all = [...cache.products];
+  const all = readProducts();
   const idx = all.findIndex((p) => p.id === product.id);
-  const previousStock = idx >= 0 ? all[idx]!.stock : 0;
   if (idx >= 0) all[idx] = product;
   else all.unshift(product);
-  cache.products = all;
-  emit();
-
-  void (async () => {
-    const id = await userId();
-    if (!id) return;
-    const { error } = await supabase
-      .from("products")
-      .upsert(productRow(product, id) as never, { onConflict: "id" });
-    if (error) {
-      console.error("saveProduct", error);
-      return;
-    }
-    const delta = product.stock - previousStock;
-    if (delta !== 0) {
-      await supabase.from("stock_movements").insert({
-        user_id: id,
-        product_id: product.id,
-        delta,
-        reason: idx >= 0 ? "adjustment" : "opening",
-      } as never);
-    }
-  })();
+  write(PRODUCTS_KEY, all);
 }
 
 export function deleteProduct(id: string) {
-  cache.products = cache.products.filter((p) => p.id !== id);
-  emit();
-  void (async () => {
-    const { error } = await supabase.from("products").delete().eq("id", id);
-    if (error) console.error("deleteProduct", error);
-  })();
-}
-
-/** Secure stock change with audit trail (uses the adjust_stock RPC). */
-export async function adjustStock(productId: string, delta: number, reason = "adjustment") {
-  const { data, error } = await supabase.rpc("adjust_stock", {
-    p_product_id: productId,
-    p_delta: delta,
-    p_reason: reason,
-  } as never);
-  if (error) {
-    console.error("adjustStock", error);
-    throw error;
-  }
-  const stock = num(data);
-  cache.products = cache.products.map((p) => (p.id === productId ? { ...p, stock } : p));
-  emit();
-  return stock;
+  write(PRODUCTS_KEY, readProducts().filter((p) => p.id !== id));
 }
 
 export function findByBarcode(barcode: string) {
-  return cache.products.find((p) => p.barcode === barcode) ?? null;
+  return readProducts().find((p) => p.barcode === barcode) ?? null;
 }
 
 /** IN STOCK / LOW STOCK / OUT OF STOCK */
@@ -516,7 +324,7 @@ export type Totals = {
  *   MRP savings   = Σ (MRP - selling price) × qty
  *   Discount      = Subtotal × discount% / 100
  *   Taxable value = Subtotal - Discount
- *   GST           = Σ (line taxable × GST rate / 100)   ← GST after discount
+ *   GST           = Σ (line taxable × GST rate / 100)
  *   Final amount  = Taxable value + GST
  */
 export function computeTotals(
@@ -583,24 +391,21 @@ export function cartItemOf(p: Product, qty = 1): CartItem {
   };
 }
 
-/**
- * Commits a sale: records billing duration, persists the bill through the
- * atomic `checkout_sale` database function (bill + lines + stock decrement +
- * stock audit trail) and mirrors the result locally for the receipt.
- */
+/** Commits a sale, records billing duration and decrements stock. */
 export function checkout(
   items: CartItem[],
   discountPercent: number,
   paymentMode: Sale["paymentMode"],
   opts: { customer?: string; startedAt?: string; sessionId?: string; demo?: boolean } = {},
 ): Sale {
-  const settings = cache.settings;
+  const settings = readSettings();
   const totals = computeTotals(items, discountPercent, settings.taxMode);
+  const sales = read<Sale[]>(SALES_KEY, []);
   const completedAt = new Date().toISOString();
   const startedAt = opts.startedAt ?? completedAt;
   const sale: Sale = {
     id: uid(),
-    invoiceNo: `INV-${String(cache.sales.length + 1).padStart(5, "0")}`,
+    invoiceNo: `INV-${String(sales.length + 1).padStart(5, "0")}`,
     createdAt: completedAt,
     items,
     mrpTotal: totals.mrpTotal,
@@ -622,59 +427,14 @@ export function checkout(
     durationSec: Math.max(1, Math.round((Date.parse(completedAt) - Date.parse(startedAt)) / 1000)),
     demo: opts.demo,
   };
+  write(SALES_KEY, [sale, ...sales]);
 
-  // Optimistic local mirror so the receipt and dashboards update instantly.
-  cache.sales = [sale, ...cache.sales];
-  cache.products = cache.products.map((p) => {
-    const line = items.find((i) => i.productId === p.id);
-    return line ? { ...p, stock: Math.max(0, p.stock - line.qty) } : p;
-  });
-  emit();
-
-  void (async () => {
-    const id = await userId();
-    if (!id) return;
-    const { error } = await supabase.rpc("checkout_sale", {
-      p_sale: {
-        invoice_no: sale.invoiceNo,
-        mrp_total: sale.mrpTotal,
-        subtotal: sale.subtotal,
-        discount: sale.discount,
-        savings: sale.savings,
-        taxable: sale.taxable,
-        tax: sale.tax,
-        cgst: sale.cgst,
-        sgst: sale.sgst,
-        igst: sale.igst,
-        tax_mode: sale.taxMode,
-        total: sale.total,
-        payment_mode: sale.paymentMode,
-        customer: sale.customer ?? "",
-        session_id: sale.sessionId ?? "",
-        started_at: sale.startedAt,
-        completed_at: sale.completedAt,
-        duration_sec: sale.durationSec,
-        demo: sale.demo ?? false,
-      },
-      p_items: items.map((i) => ({
-        product_id: i.productId,
-        barcode: i.barcode,
-        name: i.name,
-        brand: i.brand ?? null,
-        mrp: i.mrp,
-        price: i.price,
-        tax: i.tax,
-        unit: i.unit ?? null,
-        qty: i.qty,
-      })),
-    } as never);
-    if (error) {
-      console.error("checkout", error);
-      return;
-    }
-    await loadStore(true);
-  })();
-
+  const products = readProducts();
+  for (const item of items) {
+    const p = products.find((x) => x.id === item.productId);
+    if (p) p.stock = Math.max(0, p.stock - item.qty);
+  }
+  write(PRODUCTS_KEY, products);
   return sale;
 }
 
