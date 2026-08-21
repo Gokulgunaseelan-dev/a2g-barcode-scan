@@ -113,8 +113,18 @@ function useStore<T>(key: string, fallback: T, seed?: T) {
 }
 
 export function useProducts() {
-  return useStore<Product[]>(PRODUCTS_KEY, [], SEED);
+  const products = useStore<Product[]>(PRODUCTS_KEY, [], SEED);
+
+  useEffect(() => {
+    const existing = read<Product[]>(PRODUCTS_KEY, []);
+    if (existing.length === 0) return;
+    const missing = SEED.filter((s) => !existing.some((p) => p.barcode === s.barcode));
+    if (missing.length > 0) write(PRODUCTS_KEY, [...existing, ...missing]);
+  }, []);
+
+  return products;
 }
+
 
 export function useSales() {
   return useStore<Sale[]>(SALES_KEY, [], []);
