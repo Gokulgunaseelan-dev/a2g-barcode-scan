@@ -1,6 +1,6 @@
 {
-  "name": "FreshMart POS — Supermarket Billing",
-  "short_name": "FreshMart POS",
+  "name": "A2G Barcode Scan — Supermarket Billing",
+  "short_name": "A2G Barcode Scan",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#f6faf5",

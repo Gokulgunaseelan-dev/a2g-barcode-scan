@@ -1,7 +1,7 @@
 import type { Sale } from "./store";
 
 /** Generates and downloads a printable A5-style PDF receipt (jsPDF, client-only). */
-export async function downloadReceipt(sale: Sale, storeName = "FreshMart Supermarket") {
+export async function downloadReceipt(sale: Sale, storeName = "A2G Barcode Scan") {
   const { jsPDF } = await import("jspdf");
   const doc = new jsPDF({ unit: "mm", format: [80, 200] });
   let y = 10;

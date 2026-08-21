@@ -18,7 +18,7 @@ export function AppShell({ title, children }: { title: string; children: ReactNo
             <ScanBarcode className="h-5 w-5" />
           </div>
           <div>
-            <p className="text-xs uppercase tracking-widest text-muted-foreground">FreshMart POS</p>
+            <p className="text-xs uppercase tracking-widest text-muted-foreground">A2G Barcode Scan</p>
             <h1 className="text-lg font-semibold leading-tight text-foreground">{title}</h1>
           </div>
         </div>

@@ -34,13 +34,13 @@ import {
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "FreshMart POS — Supermarket Barcode Billing" },
+      { title: "A2G Barcode Scan — Supermarket Barcode Billing" },
       {
         name: "description",
         content:
           "Scan barcodes with your phone camera, build a cart, apply GST and discounts, and print PDF receipts — all offline.",
       },
-      { property: "og:title", content: "FreshMart POS — Supermarket Barcode Billing" },
+      { property: "og:title", content: "A2G Barcode Scan — Supermarket Barcode Billing" },
       {
         property: "og:description",
         content: "Fast supermarket checkout: camera barcode scanning, GST billing and PDF receipts.",

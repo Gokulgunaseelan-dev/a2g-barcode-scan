@@ -9,12 +9,12 @@ import { money, useProducts, useSales } from "@/lib/store";
 export const Route = createFileRoute("/dashboard")({
   head: () => ({
     meta: [
-      { title: "Sales Reports & Stock Alerts — FreshMart POS" },
+      { title: "Sales Reports & Stock Alerts — A2G Barcode Scan" },
       {
         name: "description",
         content: "Daily revenue, bill count, best sellers and low-stock alerts for your supermarket.",
       },
-      { property: "og:title", content: "Sales Reports & Stock Alerts — FreshMart POS" },
+      { property: "og:title", content: "Sales Reports & Stock Alerts — A2G Barcode Scan" },
       {
         property: "og:description",
         content: "Track today's revenue, top selling items and items running low on stock.",

@@ -14,12 +14,12 @@ import { deleteProduct, money, saveProduct, uid, useProducts, type Product } fro
 export const Route = createFileRoute("/products")({
   head: () => ({
     meta: [
-      { title: "Product Catalogue & Stock — FreshMart POS" },
+      { title: "Product Catalogue & Stock — A2G Barcode Scan" },
       {
         name: "description",
         content: "Add, edit and track supermarket products, barcodes, GST rates and stock levels.",
       },
-      { property: "og:title", content: "Product Catalogue & Stock — FreshMart POS" },
+      { property: "og:title", content: "Product Catalogue & Stock — A2G Barcode Scan" },
       {
         property: "og:description",
         content: "Manage barcodes, pricing, GST and low-stock alerts for your supermarket.",
