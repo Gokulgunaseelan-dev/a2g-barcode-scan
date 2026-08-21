@@ -10,12 +10,12 @@ import { money, useSales } from "@/lib/store";
 export const Route = createFileRoute("/sales")({
   head: () => ({
     meta: [
-      { title: "Sales History & Invoices — FreshMart POS" },
+      { title: "Sales History & Invoices — A2G Barcode Scan" },
       {
         name: "description",
         content: "Browse past supermarket bills, payment modes and re-download PDF invoices.",
       },
-      { property: "og:title", content: "Sales History & Invoices — FreshMart POS" },
+      { property: "og:title", content: "Sales History & Invoices — A2G Barcode Scan" },
       {
         property: "og:description",
         content: "Every bill stored on-device with one-tap PDF receipt re-download.",

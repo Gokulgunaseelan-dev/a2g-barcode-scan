@@ -78,13 +78,13 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "FreshMart POS — Supermarket Billing" },
+      { title: "A2G Barcode Scan — Supermarket Billing" },
       {
         name: "description",
         content: "Barcode billing, stock and PDF receipts for supermarkets, on any Android phone.",
       },
       { name: "theme-color", content: "#2f855a" },
-      { property: "og:title", content: "FreshMart POS — Supermarket Billing" },
+      { property: "og:title", content: "A2G Barcode Scan — Supermarket Billing" },
       {
         property: "og:description",
         content: "Barcode billing, stock and PDF receipts for supermarkets, on any Android phone.",
