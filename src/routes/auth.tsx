@@ -8,7 +8,6 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
-import { lovable } from "@/integrations/lovable";
 import { useAuth } from "@/hooks/use-auth";
 
 export const Route = createFileRoute("/auth")({
@@ -103,15 +102,6 @@ function AuthPage() {
           </div>
           <Button className="h-11 w-full" disabled={busy || !email || !password} onClick={submit}>
             {mode === "signin" ? "Sign in" : "Create account"}
-          </Button>
-          <Button
-            variant="outline"
-            className="h-11 w-full"
-            onClick={() =>
-              lovable.auth.signInWithOAuth("google", { redirect_uri: window.location.origin })
-            }
-          >
-            Continue with Google
           </Button>
         </div>
 
