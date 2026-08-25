@@ -1,0 +1,247 @@
+{
+  "version": 1,
+  "sdk_version": "0.28.0",
+  "path": "/mcp",
+  "auth": {
+    "type": "oauth",
+    "issuer": "https://bajyrljvcjdokveixzou.supabase.co/auth/v1",
+    "accepted_audiences": [
+      "authenticated"
+    ]
+  },
+  "mcp": {
+    "server": {
+      "name": "a2g-barcode-scan",
+      "version": "0.1.0",
+      "title": "A2G Barcode Scan"
+    },
+    "tools": [
+      {
+        "name": "list_products",
+        "title": "List products",
+        "description": "List the signed-in shop's products with barcode, price, GST rate and current stock. Optionally filter by name/barcode text or category.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "search": {
+              "type": "string",
+              "description": "Text to match against product name or barcode."
+            },
+            "category": {
+              "type": "string",
+              "description": "Exact category to filter by, e.g. Grocery."
+            },
+            "limit": {
+              "type": "integer",
+              "description": "Maximum rows to return (default 50)."
+            }
+          },
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "find_product_by_barcode",
+        "title": "Find product by barcode",
+        "description": "Look up one product in the signed-in shop's catalogue by its exact barcode.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "barcode": {
+              "type": "string",
+              "description": "The product barcode, e.g. 8901030865278."
+            }
+          },
+          "required": [
+            "barcode"
+          ],
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "upsert_product",
+        "title": "Add or update a product",
+        "description": "Create a product in the signed-in shop's catalogue, or update it when the barcode already exists. Prices are in Indian rupees and tax is the GST percentage.",
+        "annotations": {
+          "readOnlyHint": false,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "barcode": {
+              "type": "string",
+              "description": "Barcode used as the unique key for this shop."
+            },
+            "name": {
+              "type": "string",
+              "description": "Product name shown on the bill."
+            },
+            "price": {
+              "type": "number",
+              "description": "Selling price in rupees."
+            },
+            "category": {
+              "type": "string",
+              "description": "Category, e.g. Grocery, Snacks, Dairy."
+            },
+            "mrp": {
+              "type": "number",
+              "description": "Printed MRP in rupees."
+            },
+            "cost": {
+              "type": "number",
+              "description": "Purchase cost in rupees."
+            },
+            "stock": {
+              "type": "number",
+              "description": "Stock on hand."
+            },
+            "unit": {
+              "type": "string",
+              "description": "Unit label, e.g. pkt, pcs, btl."
+            },
+            "tax": {
+              "type": "number",
+              "description": "GST percentage, e.g. 0, 5, 12, 18, 28."
+            },
+            "low_stock_at": {
+              "type": "number",
+              "description": "Stock level that counts as low."
+            }
+          },
+          "required": [
+            "barcode",
+            "name",
+            "price"
+          ],
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "adjust_stock",
+        "title": "Adjust stock",
+        "description": "Change the stock on hand for one product of the signed-in shop by a delta (positive for goods received, negative for damage or manual correction). Records the movement.",
+        "annotations": {
+          "readOnlyHint": false,
+          "destructiveHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "barcode": {
+              "type": "string",
+              "description": "Barcode of the product to adjust."
+            },
+            "delta": {
+              "type": "number",
+              "description": "Change in units; negative reduces stock."
+            },
+            "reason": {
+              "type": "string",
+              "description": "Short reason, e.g. purchase, damage, correction."
+            },
+            "note": {
+              "type": "string",
+              "description": "Optional free-text note."
+            }
+          },
+          "required": [
+            "barcode",
+            "delta"
+          ],
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "low_stock_report",
+        "title": "Low stock report",
+        "description": "List products of the signed-in shop whose stock has fallen to or below their low-stock level, so they can be reordered.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "limit": {
+              "type": "integer",
+              "description": "Maximum rows to return (default 50)."
+            }
+          },
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "list_sales",
+        "title": "List recent sales",
+        "description": "List the signed-in shop's recent bills with invoice number, totals in rupees, payment mode and the items sold.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "limit": {
+              "type": "integer",
+              "description": "Maximum bills to return (default 20)."
+            },
+            "since": {
+              "type": "string",
+              "description": "ISO date/time; only bills created at or after this moment."
+            }
+          },
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "sales_summary",
+        "title": "Sales summary",
+        "description": "Summarise the signed-in shop's sales over the last N days: bill count, revenue, GST collected, discounts and average bill value (rupees).",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "days": {
+              "type": "integer",
+              "description": "Look-back window in days (default 7)."
+            }
+          },
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        },
+        "outputSchema": null
+      }
+    ]
+  }
+}
