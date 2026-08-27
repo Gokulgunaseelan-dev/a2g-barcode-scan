@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX IF NOT EXISTS products_user_barcode_key ON public.products (user_id, barcode);
