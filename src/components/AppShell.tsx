@@ -1,5 +1,5 @@
 import { Link } from "@tanstack/react-router";
-import { ScanBarcode, Package, ReceiptText, LayoutDashboard } from "lucide-react";
+import { ScanBarcode, Package, ReceiptText, LayoutDashboard, Cloud } from "lucide-react";
 import type { ReactNode } from "react";
 
 const nav = [
@@ -7,7 +7,9 @@ const nav = [
   { to: "/products", label: "Products", icon: Package },
   { to: "/sales", label: "Sales", icon: ReceiptText },
   { to: "/dashboard", label: "Reports", icon: LayoutDashboard },
+  { to: "/cloud", label: "Cloud", icon: Cloud },
 ] as const;
+
 
 export function AppShell({ title, children }: { title: string; children: ReactNode }) {
   return (
