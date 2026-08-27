@@ -13,6 +13,7 @@ import { Route as SalesRouteImport } from './routes/sales'
 import { Route as ProductsRouteImport } from './routes/products'
 import { Route as McpRouteImport } from './routes/mcp'
 import { Route as DashboardRouteImport } from './routes/dashboard'
+import { Route as CloudRouteImport } from './routes/cloud'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as Char91DotwellKnownChar93OauthProtectedResourceRouteImport } from './routes/[.well-known]/oauth-protected-resource'
@@ -38,6 +39,11 @@ const McpRoute = McpRouteImport.update({
 const DashboardRoute = DashboardRouteImport.update({
   id: '/dashboard',
   path: '/dashboard',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CloudRoute = CloudRouteImport.update({
+  id: '/cloud',
+  path: '/cloud',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthRoute = AuthRouteImport.update({
@@ -77,6 +83,7 @@ const DotlovableOauthConsentRoute = DotlovableOauthConsentRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
+  '/cloud': typeof CloudRoute
   '/dashboard': typeof DashboardRoute
   '/mcp': typeof McpRoute
   '/products': typeof ProductsRoute
@@ -89,6 +96,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
+  '/cloud': typeof CloudRoute
   '/dashboard': typeof DashboardRoute
   '/mcp': typeof McpRoute
   '/products': typeof ProductsRoute
@@ -102,6 +110,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
+  '/cloud': typeof CloudRoute
   '/dashboard': typeof DashboardRoute
   '/mcp': typeof McpRoute
   '/products': typeof ProductsRoute
@@ -116,6 +125,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/auth'
+    | '/cloud'
     | '/dashboard'
     | '/mcp'
     | '/products'
@@ -128,6 +138,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/auth'
+    | '/cloud'
     | '/dashboard'
     | '/mcp'
     | '/products'
@@ -140,6 +151,7 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/auth'
+    | '/cloud'
     | '/dashboard'
     | '/mcp'
     | '/products'
@@ -153,6 +165,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthRoute: typeof AuthRoute
+  CloudRoute: typeof CloudRoute
   DashboardRoute: typeof DashboardRoute
   McpRoute: typeof McpRoute
   ProductsRoute: typeof ProductsRoute
@@ -191,6 +204,13 @@ declare module '@tanstack/react-router' {
       path: '/dashboard'
       fullPath: '/dashboard'
       preLoaderRoute: typeof DashboardRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/cloud': {
+      id: '/cloud'
+      path: '/cloud'
+      fullPath: '/cloud'
+      preLoaderRoute: typeof CloudRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/auth': {
@@ -241,6 +261,7 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthRoute: AuthRoute,
+  CloudRoute: CloudRoute,
   DashboardRoute: DashboardRoute,
   McpRoute: McpRoute,
   ProductsRoute: ProductsRoute,
